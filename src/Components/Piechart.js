@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import * as d3 from "d3";
 
-const Pie = props => {
+const Pie = ({top=10,...props}) => {
     const ref = useRef(null);
     const divref = useRef(null);
     const cache = useRef(props.data);
@@ -14,7 +14,7 @@ const Pie = props => {
         .innerRadius(props.innerRadius)
         .outerRadius(props.outerRadius);
     const colors = props.colors??d3.scaleOrdinal(d3.schemeCategory10);
-    const format = d3.format("d");
+    const format = d3.format(",d");
 
     useEffect(
         () => {
@@ -34,7 +34,7 @@ const Pie = props => {
                     .style('alignment-baseline','text-before-edge');
             }
             // summary.attr('transform',`translate(${props.width/2},${props.height/2})`);
-            summary.select('text.Summary1').text(d3.sum(data,d=>d.value));
+            summary.select('text.Summary1').text(format(d3.sum(data,d=>d.value)));
             summary.select('text.Summary2').text(props.unit);
             const groupWithData = group.selectAll("g.arc").data(data);
 
@@ -79,7 +79,7 @@ const Pie = props => {
                     return t => d3.select(nodes[i]).text(format(interpolator(t).value));
                 });
 
-            let list = data.slice(0,10);
+            let list = data.slice(0,top);
             const topScale = d3.scaleLinear().domain(d3.extent(list,d=>d.value)).range([10,100])
             const divg = d3.select(divref.current);
             const divWithData = divg.selectAll("div.bar").data(list);
@@ -127,7 +127,7 @@ const Pie = props => {
                 .style('background-color',(d,i)=>colors(d,i))
                 .style('width',d=>`${topScale(d.value)}%`)
                 .selectAll('span')
-                .text(d=>d.value)
+                .text(d=>format(d.value))
 
             cache.current = props.data;
         },
@@ -142,7 +142,6 @@ const Pie = props => {
                 transform={`translate(${props.outerRadius} ${props.outerRadius})`}
             />
         </svg>
-            <h5 style={{marginTop:15,marginBottom:2}}>Top 10 = {d3.sum(props.data.slice(0,10),d=>d.count)} {props.unit}</h5>
         <div ref={divref} style={{
             display: "flex",
             alignItems: "right",
@@ -161,6 +160,7 @@ const Pie = props => {
         }} className={"sc1"}>
 
         </div>
+            <h5 style={{marginTop:15,marginBottom:2}}>Total = {format(d3.sum(props.data.slice(0,top),d=>d.count))} {props.unit}</h5>
             {/*{props.data.slice(0,10).map(d=><div key={d['title']} style={{width:'100%', padding: '1px', display: "flex"}}*/}
             {/*>*/}
             {/*    <div style={{width:'30%', textAlign:"right",padding:'2px',textOverflow: "ellipsis",whiteSpace: "nowrap",overflow: "hidden"}}>{d['title']}</div>*/}

@@ -18,16 +18,20 @@ const MAP_CENTERs = [{ lat: -92.52824601944323, lng: 38.31079101844495, altitude
 // const MAP_CENTER = { lat: 33.5842591, lng: -101.8804709, altitude: 0.6 };
 const OPACITY = 0.3;
 const RING_PROPAGATION_SPEED = 1; // deg/sec
+const TOP = 20;
+const colorArr = ['#1f77b4', '#aec7e8', '#ff7f0e', '#ffbb78', '#2ca02c', '#98df8a', '#d62728', '#ff9896', '#9467bd', '#c5b0d5', '#8c564b', '#c49c94', '#e377c2', '#f7b6d2', '#7f7f7f', '#c7c7c7', '#bcbd22', '#dbdb8d', '#17becf', '#9edae5'];
 
 const arcThickScale = d3.scaleLinear().range([0.01,0.7]);
 const contriesScale = d3.scaleLinear().range([0.1,0.7]);
 const weightColor = d3.scaleSequentialSqrt(d3.interpolateYlOrRd)
     .domain([0, 1e7]);
 const colorsCategory = (function(otherColor="#454545"){
-    const scale = d3.scaleOrdinal(d3.schemeCategory10);
+    const scale = d3.scaleOrdinal(colorArr);
     let master = (val)=>{
+        if ((!val)||(val==='')||(val.trim===''))
+            return 'black'
         const domain = scale.domain();
-        if (domain.find(d=>d===val)|| (domain.length<10))
+        if (domain.find(d=>d===val)|| (domain.length<TOP))
             return scale(val);
         else
             return otherColor
@@ -38,13 +42,15 @@ const colorsCategory = (function(otherColor="#454545"){
 })();
 function App() {
     const globeEl = useRef();
-    const [filterKeys, setfilterKeys] = useState({country:{"United States":true,"Brazil":true,"United Kingdom":true,"Spain":true,"France":true,"Italy":true,"Argentina":true,"Germany":true,"Colombia":true,"Mexico":true,"Canada":true,"Netherlands":true,"Russia":true,"Greece":true,"Australia":true}});
+    // const [filterKeys, setfilterKeys] = useState({country:{"United States":true,"Brazil":true,"United Kingdom":true,"Spain":true,"France":true,"Italy":true,"Argentina":true,"Germany":true,"Colombia":true,"Mexico":true,"Canada":true,"Netherlands":true,"Russia":true,"Greece":true,"Australia":true}});
+    const [filterKeys, setfilterKeys] = useState(undefined);
+    const [colorKey, setColorKey] = useState('country');
     const [logos, setLogos] = useState([]);
     const [rawData, setRawData] = useState({stationData:[],locationData:[],metaData:[]});
     const [locs, setLocs] = useState([]);
     const [constries, setConstries] = useState([]);
     const [genre, setGenre] = useState([]);
-    const [stream_name, setStream_name] = useState([]);
+    const [city, setcity] = useState([]);
     const [routes, setRoutes] = useState([]);
     const [hoverArc, setHoverArc] = useState();
     const [selectPoint, setSelectPoint] = useState();
@@ -67,7 +73,7 @@ function App() {
                 count: d[1].length,
                 values: d[1],
                 genre: d3.groups(meta,d=>d.stream_genre).map(d=>{d.title=d[0];d.count=d[1].length;return d}),
-                stream_name: d3.groups(meta,d=>d.stream_name).map(d=>{d.title=d[0];d.count=d[1].length;return d}),
+                city: d3.groups(meta,d=>d.city).map(d=>{d.title=d[0];d.count=d[1].length;return d}),
             }
         });
         locs.sort((a, b) => b.count - a.count);
@@ -76,8 +82,8 @@ function App() {
         const constries = d3.groups(stationData, d => d["country"]).map(d => {
             return {
                 "title": d[0],
-                long: d3.mean(d[1], e => e.longitude),
-                lat: d3.mean(d[1], e => e.latitude),
+                long: d3.mean(d[1], e => e.long),
+                lat: d3.mean(d[1], e => e.lat),
                 count: d[1].length,
                 values: d[1]
             }
@@ -93,16 +99,21 @@ function App() {
             }
         }).sort((a, b) => b.count - a.count);
 
-        const stream_name = d3.groups(metaData, d => d["stream_name"]).map(d => {
+
+        const city = d3.groups(stationData, d => d["city"]).map(d => {
             return {
                 "title": d[0],
+                long: d3.mean(d[1], e => e.longitude),
+                lat: d3.mean(d[1], e => e.latitude),
                 count: d[1].length,
-                values: d[1]
+                values: d[1],
+                country: d[1][0].country,
+                city: d[1][0].city,
             }
         }).sort((a, b) => b.count - a.count);
 
         //color
-        colorsCategory.domain([]).range(d3.schemeCategory10);
+        colorsCategory.domain([]).range(colorArr);
         constries.forEach(d=>colorsCategory(d.title));
 
         let order = 0;
@@ -113,7 +124,7 @@ function App() {
             MAP_CENTERs[order].lng = constries[i].long;
             order++
         })
-        return {locs, constries,genre,stream_name};
+        return {locs, constries,genre,city};
     }
 
     useEffect(() => {
@@ -124,11 +135,24 @@ function App() {
             d3.csv(RG_metadata),
         ]).then(([stationData,locationData,metaData]) => {
             locationData.forEach(d=>{
-                d.long = d.geo_2;
-                d.lat = d.geo_1;
+                d.lat = (+d.geo_2);
+                d.long = (+d.geo_1);
                 delete  d.geo_1;
                 delete  d.geo_2;
             });
+            stationData.forEach(d=>{
+                d.lat = (+d.longitude);
+                d.long = (+d.latitude);
+            });
+            metaData.forEach((d)=>{
+                if (d.stream_genre==="(null)")
+                    d.stream_genre = "unspecified";
+                if (d.stream_genre==="top40")
+                    d.stream_genre="top 40";
+                if (d.stream_genre==="varios")
+                    d.stream_genre="various";
+            })
+            // const rawData = {stationData,locationData,metaData:metaData.filter(d=>d.city!=='')};
             const rawData = {stationData,locationData,metaData};
             filterdata(rawData);
             globeEl.current.pointOfView(MAP_CENTERs[0], 4000)
@@ -148,11 +172,11 @@ function App() {
                 metaData = metaData.filter(d=>filterKeys.country[d.genre]);
             }
         }
-        const {locs, constries, genre,stream_name} = handleData(stationData, locationData,metaData);
+        const {locs, constries, genre,city} = handleData(stationData, locationData,metaData);
         setLocs(locs);
         setConstries(constries);
         setGenre(genre)
-        setStream_name(stream_name)
+        setcity(city)
     },[filterKeys,rawData])
     useEffect(()=>{
         if (globeEl.current) {
@@ -228,8 +252,8 @@ function App() {
             hexBinPointLat={d => d.lat}
             hexAltitude={d => arcThickScale(d.sumWeight)}
             hexBinResolution={4}
-            hexTopColor={d => colorsCategory(d.points[0].country)}
-            hexSideColor={d => colorsCategory(d.points[0].country)}
+            hexTopColor={d => colorsCategory(d.points[0][colorKey])}
+            hexSideColor={d => colorsCategory(d.points[0][colorKey])}
 
             hexBinMerge={true}
             hexLabel={d => {console.log(d); return `
@@ -263,7 +287,7 @@ function App() {
                 flexDirection: "column"
             }}
         >
-            <h2 style={{color:'white'}}>Top 15 countries</h2>
+            {/*<h2 style={{color:'white'}}>Top 15 countries</h2>*/}
             <div style={{
                 display: "flex",
                 alignItems: "right",
@@ -285,10 +309,27 @@ function App() {
                     <Pie
                         data={constries}
                         valueKey={(d)=>d.count}
-                        displayText={(d,i)=>i<10?null:'none'}
+                        displayText={(d,i)=>i<TOP?null:'none'}
                         colors={(d,i)=>colorsCategory(d.data.title)}
                         width={200}
                         height={200}
+                        top={TOP}
+                        innerRadius={60}
+                        outerRadius={100}
+                        unit={'stations'}
+                    />
+                </div>
+                <div style={{width:'50%',height:'200px'}}>
+                    <h3>Cities</h3>
+                    <Pie
+                        data={city}
+                        displayText={(d,i)=>i<TOP?null:'none'}
+                        colors={(d,i)=>i<TOP?colorsCategory(d.data[colorKey]):'#454545'}
+                        // colors={(d,i)=>i<TOP?'gray':'#454545'}
+                        valueKey={(d)=>d.count}
+                        width={200}
+                        height={200}
+                        top={TOP}
                         innerRadius={60}
                         outerRadius={100}
                         unit={'stations'}
@@ -298,25 +339,12 @@ function App() {
                     <h3>Genres</h3>
                     <Pie
                         data={genre}
-                        displayText={(d,i)=>i<10?null:'none'}
-                        colors={(d,i)=>i<10?'gray':'#454545'}
+                        displayText={(d,i)=>i<TOP?null:'none'}
+                        colors={(d,i)=>i<TOP?((d.data.title!=='')?'gray':'#424242'):'#454545'}
                         valueKey={(d)=>d.count}
                         width={200}
                         height={200}
-                        innerRadius={60}
-                        outerRadius={100}
-                        unit={'streams'}
-                    />
-                </div>
-                <div style={{width:'50%',height:'200px'}}>
-                    <h3>Stream Names</h3>
-                    <Pie
-                        data={stream_name}
-                        displayText={(d,i)=>i<10?null:'none'}
-                        colors={(d,i)=>i<10?'gray':'#454545'}
-                        valueKey={(d)=>d.count}
-                        width={200}
-                        height={200}
+                        top={TOP}
                         innerRadius={60}
                         outerRadius={100}
                         unit={'streams'}
