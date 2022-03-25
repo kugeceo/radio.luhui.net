@@ -103,7 +103,8 @@ const Pie = props => {
                 .style('overflow', "hidden")
                 .merge(divWithUpdate.select("div.title"))
                 .style('opacity',d=>(d.data.title.trim()!=='')?null:0.3)
-                .text(d=>d.data.title.trim()!==''?d.data.title:"Not listed");
+                .text(d=>d.data.title.trim()!==''?d.data.title:"Not listed")
+                .attr('title',d=>d.data.title.trim()!==''?d.data.title:"Not listed");
             const processnew = divWithUpdate
                 .append("div")
                 .attr('class','process')
@@ -147,7 +148,7 @@ const Pie = props => {
             alignItems: "right",
             color: "#fff",
             flexDirection: "column",
-            height:'calc(100vh - 420px)',
+            height:'calc(100vh - 490px)',
             width:'90%',
             padding:'10px',
             position:'relative',
