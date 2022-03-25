@@ -141,6 +141,7 @@ const Pie = props => {
                 transform={`translate(${props.outerRadius} ${props.outerRadius})`}
             />
         </svg>
+            <h5 style={{marginTop:15,marginBottom:2}}>Top 10 = {d3.sum(props.data.slice(0,10),d=>d.count)} {props.unit}</h5>
         <div ref={divref} style={{
             display: "flex",
             alignItems: "right",
